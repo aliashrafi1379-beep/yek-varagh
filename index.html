@@ -376,7 +376,7 @@ async function startQuiz(chapterData, element) {
         for (let b of allBtns) b.disabled = true;
 
         // تشخیص جواب درست بر اساس کلیدهای استاندارد جیسون
-        const correctIdx = q.answer !== undefined ? q.answer : q.correct_index;
+        const correctIdx = q.correct_option_index !== undefined ? q.correct_option_index : q.correct_index;
 
         if (selectedIndex === correctIdx) {
             btnNode.classList.add('correct');
