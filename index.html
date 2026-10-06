@@ -331,7 +331,7 @@ async function startQuiz(chapterData, element) {
             }
             
             currentQuestions = await response.json();
-            
+            currentQuestions = currentQuestions.sort(() => 0.5 - Math.random()).slice(0, 5);
             if (!Array.isArray(currentQuestions) || currentQuestions.length === 0) {
                 throw new Error("فایل جیسون خالی است یا ساختار آرایه ندارد.");
             }
@@ -356,11 +356,29 @@ async function startQuiz(chapterData, element) {
         document.getElementById('progress').style.width = progressPercent + '%';
 
         const q = currentQuestions[currentQIndex];
-        document.getElementById('question-text').innerText = q.question;
+        
+        // نمایش نکته آموزشی در صفحه قبل از سوال
+        document.getElementById('question-text').innerHTML = `
+            <div style="font-size: 16px; color: var(--primary-btn); margin-bottom: 15px; font-weight: bold;">💡 نکته آموزشی:</div>
+            <div style="font-size: 19px; line-height: 1.7;">${q.tip_text}</div>
+        `;
+        
+        const optsContainer = document.getElementById('options-container');
+        optsContainer.innerHTML = `
+            <button class="btn primary-action" style="margin-top: 25px;" onclick="showActualQuestion()">یاد گرفتم، بریم تستش! 🚀</button>
+        `;
+    }
+
+    function showActualQuestion() {
+        const q = currentQuestions[currentQIndex];
+        
+        // نمایش متن سوال
+        document.getElementById('question-text').innerText = "❓ " + q.question;
         
         const optsContainer = document.getElementById('options-container');
         optsContainer.innerHTML = '';
 
+        // ساخت دکمه گزینه‌ها
         q.options.forEach((opt, idx) => {
             const btn = document.createElement('button');
             btn.className = 'btn';
@@ -373,10 +391,12 @@ async function startQuiz(chapterData, element) {
     function checkAnswer(selectedIndex, btnNode) {
         const q = currentQuestions[currentQIndex];
         const allBtns = document.getElementById('options-container').children;
-        for (let b of allBtns) b.disabled = true;
+        for (let b of allBtns) b.disabled = true; // غیرفعال کردن بقیه دکمه‌ها
 
-        // تشخیص جواب درست بر اساس کلیدهای استاندارد جیسون
+        // کلید صحیح که در مرحله قبل اصلاح کردیم
         const correctIdx = q.correct_option_index !== undefined ? q.correct_option_index : q.correct_index;
+
+        let delayTime = 1200; // زمان مکث پیش‌فرض برای رفتن به سوال بعدی
 
         if (selectedIndex === correctIdx) {
             btnNode.classList.add('correct');
@@ -386,15 +406,26 @@ async function startQuiz(chapterData, element) {
         } else {
             btnNode.classList.add('wrong');
             if (allBtns[correctIdx]) allBtns[correctIdx].classList.add('correct');
+            
+            // اگر غلط جواب داد، توضیح (explanation) رو بهش نشون بده تا یاد بگیره
+            const expDiv = document.createElement('div');
+            expDiv.style.marginTop = "20px";
+            expDiv.style.color = "#e53935";
+            expDiv.style.fontSize = "16px";
+            expDiv.style.fontWeight = "bold";
+            expDiv.style.lineHeight = "1.6";
+            expDiv.innerText = "❌ " + q.explanation;
+            document.getElementById('options-container').appendChild(expDiv);
+
+            delayTime = 4000; // چون باید توضیح رو بخونه، ۴ ثانیه مکث میکنیم بعد میریم سوال بعدی
             try { tg.HapticFeedback.notificationOccurred('error'); } catch(e){}
         }
 
         setTimeout(() => {
             currentQIndex++;
             loadQuestion();
-        }, 1200);
+        }, delayTime);
     }
-
     function finishQuiz() {
         document.getElementById('progress').style.width = '100%';
         document.getElementById('question-text').innerText = `آزمون فصل ${currentChapterData.id} (${currentChapterData.title}) به پایان رسید! 🎉\nکارت عالی بود.`;
