@@ -237,6 +237,7 @@
     let userRole = 'ثبت نشده';
     let activeNodeElement = null;
     let currentChapterData = null;
+    let userAnswers = [];
 
     // رندر کردن اتوماتیک نقشه راه
     function renderRoadmap() {
@@ -309,6 +310,7 @@ async function startQuiz(chapterData, element) {
         document.getElementById('bottom-nav').style.display = 'none';
         currentQIndex = 0;
         userScore = 0;
+        userAnswers = [];
         
         document.getElementById('question-text').innerText = "در حال بارگذاری سوالات... ⏳";
         document.getElementById('options-container').innerHTML = '';
@@ -388,13 +390,22 @@ async function startQuiz(chapterData, element) {
         });
     }
 
-    function checkAnswer(selectedIndex, btnNode) {
+function checkAnswer(selectedIndex, btnNode) {
         const q = currentQuestions[currentQIndex];
         const allBtns = document.getElementById('options-container').children;
-        for (let b of allBtns) b.disabled = true; // غیرفعال کردن بقیه دکمه‌ها
+        for (let b of allBtns) b.disabled = true;
 
-        // کلید صحیح که در مرحله قبل اصلاح کردیم
         const correctIdx = q.correct_option_index !== undefined ? q.correct_option_index : q.correct_index;
+        const isCorrect = (selectedIndex === correctIdx);
+
+        // 👇 ثبت سوال و درست/غلط بودن آن در حافظه لایتنر
+        // اگر داخل فایل json کلید id دارید از q.id استفاده می‌شود، در غیر این صورت از شماره ایندکس + شناسه فصل
+        const questionId = q.id || (currentChapterData.id * 1000 + currentQIndex + 1);
+        userAnswers.push({
+            question_id: questionId,
+            is_correct: isCorrect
+        });
+        // 👆 ----------------------------------------------------
 
         let delayTime = 1200; // زمان مکث پیش‌فرض برای رفتن به سوال بعدی
 
@@ -445,7 +456,8 @@ async function startQuiz(chapterData, element) {
                 chapter_id: currentChapterData.id,
                 chapter_title: currentChapterData.title,
                 score: userScore,
-                role: userRole
+                role: userRole,
+                answers: userAnswers
             }));
         }
         returnToRoadmap();
