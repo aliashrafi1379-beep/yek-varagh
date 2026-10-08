@@ -1,5 +1,227 @@
-let currentQuestions = [];
-    let currentMode = 'study'; // دو حالت: study (مطالعه ۵ نکته) یا quiz (حل تست‌ها)
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>یک ورق بیهوشی - نقشه راه کامل میلر</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        @font-face {
+            font-family: 'B Nazanin';
+            src: local('B Nazanin'), local('BNazanin');
+        }
+
+        :root {
+            --bg-color: #e0f2f1;
+            --text-color: #263238;
+            --glass-bg: rgba(255, 255, 255, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.5);
+            --primary-btn: #00897b;
+            --hover-btn: rgba(0, 137, 123, 0.15);
+            --locked-bg: rgba(158, 158, 158, 0.3);
+            --w1-color: #ff5722;
+            --w2-color: #2196f3;
+            --w3-color: #9c27b0;
+            --w4-color: #d32f2f;
+            --w5-color: #00796b;
+            --dry-color: #607d8b;
+        }
+
+        body.dark-theme {
+            --bg-color: #111b1f;
+            --text-color: #e0f2f1;
+            --glass-bg: rgba(20, 30, 35, 0.75);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary-btn: #26a69a;
+            --locked-bg: rgba(100, 100, 100, 0.3);
+            --dry-color: #455a64;
+        }
+
+        * { box-sizing: border-box; }
+        body { font-family: 'B Nazanin', Tahoma, Arial, sans-serif; background-color: var(--bg-color); color: var(--text-color); margin: 0; padding: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: 0.4s ease; }
+
+        .glass-container {
+            background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+            border-radius: 24px; border: 1px solid var(--glass-border); box-shadow: 0 10px 40px 0 rgba(0, 0, 0, 0.1);
+            width: 95%; max-width: 500px; margin: 15px auto; flex-grow: 1; overflow-y: auto; position: relative;
+        }
+        .glass-container::-webkit-scrollbar { display: none; }
+
+        .screen { display: none; opacity: 0; transform: translateY(15px); transition: all 0.4s ease; padding: 25px 20px 80px 20px; }
+        .screen.active { display: block; opacity: 1; transform: translateY(0); }
+
+        h2 { margin-top: 0; margin-bottom: 20px; font-size: 24px; text-align: center; line-height: 1.4; }
+        .subtitle { font-size: 16px; opacity: 0.8; margin-bottom: 20px; text-align: center; }
+        
+        .btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; background: var(--glass-bg); border: 2px solid var(--glass-border); padding: 14px; margin: 10px 0; border-radius: 16px; font-size: 18px; font-weight: bold; color: var(--text-color); cursor: pointer; transition: 0.2s; }
+        .btn:active { background: var(--hover-btn); border-color: var(--primary-btn); transform: scale(0.98); }
+        .btn.primary-action { background: var(--primary-btn); color: white; border-color: var(--primary-btn); }
+
+        .level-section { margin-bottom: 40px; padding-top: 10px; }
+        .level-header { font-size: 20px; font-weight: bold; margin-bottom: 30px; padding-bottom: 10px; border-bottom: 2px dashed var(--glass-border); text-align: center; }
+        
+        .path-container { display: flex; flex-direction: column; align-items: center; gap: 40px; position: relative; }
+        .path-container::before { content: ''; position: absolute; top: 0; bottom: 0; width: 6px; background: var(--glass-border); z-index: 0; border-radius: 3px; }
+
+        .level-node {
+            width: 75px; height: 75px; border-radius: 50%; display: flex; justify-content: center; align-items: center;
+            font-size: 30px; box-shadow: 0 6px 0 rgba(0, 0, 0, 0.2); cursor: pointer; transition: 0.2s;
+            position: relative; z-index: 1; border: 4px solid var(--glass-bg);
+        }
+        .level-node:active:not(.locked) { transform: translateY(4px) !important; box-shadow: 0 2px 0 rgba(0, 0, 0, 0.2); }
+        .level-node.locked { background: var(--locked-bg) !important; color: gray !important; box-shadow: 0 4px 0 rgba(0,0,0,0.1); filter: grayscale(100%); pointer-events: none; }
+        
+        .level-node.dry-node { border-radius: 20px; background: var(--dry-color) !important; width: 70px; height: 70px; font-size: 26px; }
+
+        .level-label {
+            position: absolute; top: 80px; font-size: 13px; font-weight: bold; white-space: nowrap;
+            color: var(--text-color); background: var(--glass-bg); padding: 4px 10px; border-radius: 10px;
+            border: 1px solid var(--glass-border); backdrop-filter: blur(5px); text-align: center;
+        }
+
+        .path-container > div:nth-child(even) { transform: translateX(-40px); }
+        .path-container > div:nth-child(odd) { transform: translateX(40px); }
+
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--glass-bg); backdrop-filter: blur(20px); border-top: 1px solid var(--glass-border); display: none; justify-content: space-around; padding: 10px 0 20px 0; z-index: 100; }
+        .nav-item { background: none; border: none; color: var(--text-color); font-size: 14px; display: flex; flex-direction: column; align-items: center; gap: 5px; opacity: 0.6; cursor: pointer; }
+        .nav-item.active { opacity: 1; color: var(--primary-btn); transform: translateY(-2px); font-weight: bold; }
+        .nav-item span { font-size: 22px; }
+
+        .leaderboard-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: var(--glass-bg); border-radius: 12px; margin-bottom: 10px; border: 1px solid var(--glass-border); font-size: 18px;}
+        .rank-1 { border-color: gold; box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); }
+
+        .progress-bar { width: 100%; background: var(--locked-bg); border-radius: 10px; height: 12px; margin-bottom: 25px; }
+        .progress-fill { height: 100%; background: var(--primary-btn); width: 0%; transition: 0.3s; border-radius: 10px; }
+        .correct { background: #4caf50 !important; color: white !important; border-color: #4caf50 !important; }
+        .wrong { background: #e53935 !important; color: white !important; border-color: #e53935 !important; }
+    </style>
+</head>
+<body>
+
+<div class="glass-container">
+    <div id="role-screen" class="screen active">
+        <h2>سلام! 👋<br>به نقشه راه جامع میلر خوش اومدی</h2>
+        <p class="subtitle">برای شروع، شغلت رو مشخص کن:</p>
+        <button class="btn" onclick="finishOnboarding('کارشناس بیهوشی')">💉 کارشناس بیهوشی</button>
+        <button class="btn" onclick="finishOnboarding('متخصص بیهوشی')">👨‍⚕️ متخصص بیهوشی</button>
+        <button class="btn" onclick="finishOnboarding('دانشجوی بیهوشی')">📚 دانشجوی بیهوشی</button>
+    </div>
+
+    <div id="review-banner" style="display: none; background: #ff9800; color: white; padding: 14px; border-radius: 16px; margin: 15px; text-align: center; box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);">
+        <div style="font-weight: bold; font-size: 17px; margin-bottom: 6px;">🧠 وقت مرور روزانه لایتنر!</div>
+        <div style="font-size: 14px; opacity: 0.9;" id="review-count-text">شما ۳ نکته موعد مرور دارید.</div>
+        <button class="btn" style="background: white; color: #e65100; margin-top: 10px; border: none; font-weight: bold;" onclick="startDailyReview()">شروع مرور سریع ⚡</button>
+    </div>
+
+    <div id="dashboard-screen" class="screen">
+        <div id="roadmap-container"></div>
+    </div>
+
+    <div id="leaderboard-screen" class="screen">
+        <h2>رتبه‌بندی برترین‌ها 🏆</h2>
+        <div class="leaderboard-item rank-1">
+            <span>🥇 دیانا</span>
+            <strong>۱۴۵۰ XP</strong>
+        </div>
+        <div class="leaderboard-item">
+            <span>🥈 امیرحسین</span>
+            <strong>۱۲۰۰ XP</strong>
+        </div>
+        <div class="leaderboard-item">
+            <span>🥉 <span id="board-name">شما</span></span>
+            <strong id="board-score">۰ XP</strong>
+        </div>
+    </div>
+
+    <div id="quiz-screen" class="screen">
+        <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
+        <h2 id="question-text">سوال...</h2>
+        <div id="options-container"></div>
+    </div>
+</div>
+
+<nav class="bottom-nav" id="bottom-nav">
+    <button class="nav-item active" onclick="switchTab('dashboard-screen', this)"><span>🗺️</span>مسیر</button>
+    <button class="nav-item" onclick="switchTab('leaderboard-screen', this)"><span>🏆</span>رتبه‌ها</button>
+    <button class="nav-item" onclick="switchTab('role-screen', this)"><span>👤</span>پروفایل</button>
+</nav>
+
+<script>
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+        tg.expand();
+        if (tg.colorScheme === 'dark') document.body.classList.add('dark-theme');
+    }
+
+    const userName = tg?.initDataUnsafe?.user?.first_name || "همکار عزیز";
+    if (document.getElementById('board-name')) document.getElementById('board-name').innerText = userName;
+
+    const millerRoadmap = [
+        { w: 1, id: 16, title: "مدیریت راه هوایی", type: "exciting", icon: "🫁" },
+        { w: 1, id: 8, title: "هوشبرهای وریدی", type: "exciting", icon: "💉" },
+        { w: 1, id: 1, title: "محدوده عملکرد بیهوشی", type: "dry", icon: "📖" },
+        { w: 1, id: 11, title: "شل‌کننده‌های عضلانی", type: "exciting", icon: "💪" },
+        { w: 1, id: 17, title: "بی‌حسی نخاعی و اپیدورال", type: "exciting", icon: "🦴" },
+        { w: 1, id: 4, title: "اصول پایه فارماکولوژی", type: "dry", icon: "📚" },
+        { w: 1, id: 20, title: "مانیتورینگ بیهوشی", type: "exciting", icon: "📈" },
+        { w: 1, id: 24, title: "مدیریت مایعات", type: "exciting", icon: "💧" },
+        { w: 1, id: 5, title: "فیزیولوژی قلب و ریه", type: "dry", icon: "🫀" },
+        { w: 1, id: 45, title: "احیای قلبی ریوی CPR", type: "exciting", icon: "⚡" },
+
+        { w: 2, id: 43, title: "بیهوشی در تروما", type: "exciting", icon: "🚑" },
+        { w: 2, id: 2, title: "یادگیری بیهوشی", type: "dry", icon: "🧠" },
+        { w: 2, id: 7, title: "هوشبرهای استنشاقی", type: "exciting", icon: "💨" },
+        { w: 2, id: 9, title: "داروهای اپیوئیدی", type: "exciting", icon: "💊" },
+        { w: 2, id: 6, title: "سیستم عصبی خودمختار", type: "dry", icon: "🔬" },
+        { w: 2, id: 22, title: "تفسیر ABG", type: "exciting", icon: "🩸" },
+        { w: 2, id: 10, title: "بی‌حس‌کننده‌های موضعی", type: "exciting", icon: "🎯" },
+        { w: 2, id: 13, title: "ارزیابی پیش از عمل", type: "dry", icon: "📋" },
+        { w: 2, id: 18, title: "بلوک‌های اعصاب محیطی", type: "exciting", icon: "⚡" },
+        { w: 2, id: 21, title: "سونوگرافی POCUS", type: "exciting", icon: "🖥️" },
+
+        { w: 3, id: 15, title: "سیستم‌های تحویل بیهوشی", type: "dry", icon: "⚙️" },
+        { w: 3, id: 25, title: "خون‌‌درمانی", type: "exciting", icon: "🩸" },
+        { w: 3, id: 33, title: "بیهوشی در مامایی", type: "exciting", icon: "🤰" },
+        { w: 3, id: 19, title: "پوزیشن دادن به بیمار", type: "dry", icon: "🛏️" },
+        { w: 3, id: 34, title: "بیهوشی اطفال", type: "exciting", icon: "👶" },
+        { w: 3, id: 26, title: "بیماری‌های قلبی عروقی", type: "exciting", icon: "🫀" },
+        { w: 3, id: 23, title: "هموستاز و انعقاد", type: "dry", icon: "🩸" },
+        { w: 3, id: 30, title: "بیماری‌های سیستم عصبی", type: "exciting", icon: "🧠" },
+        { w: 3, id: 39, title: "ریکاوری پس از بیهوشی", type: "exciting", icon: "🛌" },
+        { w: 3, id: 12, title: "سمیت عصبی داروهای بیهوشی", type: "dry", icon: "⚠️" },
+
+        { w: 4, id: 41, title: "پزشکی مراقبت‌های ویژه", type: "exciting", icon: "🏥" },
+        { w: 4, id: 40, title: "مدیریت درد حین عمل", type: "exciting", icon: "💉" },
+        { w: 4, id: 27, title: "بیماری‌های مزمن ریوی", type: "dry", icon: "🫁" },
+        { w: 4, id: 36, title: "پیوند اعضا", type: "exciting", icon: "🤝" },
+        { w: 4, id: 14, title: "انتخاب تکنیک بیهوشی", type: "exciting", icon: "🤔" },
+        { w: 4, id: 28, title: "بیماری‌های کلیوی و کبدی", type: "dry", icon: "🔬" },
+        { w: 4, id: 37, title: "بیهوشی سرپایی", type: "exciting", icon: "🚶" },
+        { w: 4, id: 38, title: "مکان‌های غیر اتاق عمل", type: "exciting", icon: "🏢" },
+        { w: 4, id: 29, title: "بیماری‌های غدد و گوارش", type: "dry", icon: "🍏" },
+        { w: 4, id: 31, title: "چشم‌پزشکی و گوش و حلق", type: "exciting", icon: "👁" },
+
+        { w: 5, id: 32, title: "جراحی ارتوپدی", type: "exciting", icon: "🦴" },
+        { w: 5, id: 3, title: "سلامت روان کادر درمان", type: "dry", icon: "🧘" },
+        { w: 5, id: 44, title: "مدیریت درد مزمن", type: "exciting", icon: "🤕" },
+        { w: 5, id: 42, title: "پزشکی حین عمل", type: "exciting", icon: "🩺" },
+        { w: 5, id: 35, title: "بیهوشی در سالمندان", type: "dry", icon: "🧓" },
+        { w: 5, id: 47, title: "مراقبت‌های تسکینی", type: "exciting", icon: "🕊️" },
+        { w: 5, id: 48, title: "پزشکی خواب", type: "exciting", icon: "💤" },
+        { w: 5, id: 46, title: "کیفیت و ایمنی بیمار", type: "dry", icon: "🛡️" },
+        { w: 5, id: 49, title: "سلامت محیط زیست", type: "dry", icon: "🌍" }
+    ];
+
+    const worldNames = {
+        1: "💥 منطقه ۱: ورود به اتاق عمل (The Hook)",
+        2: "🧪 منطقه ۲: فارماکولوژی و بحران",
+        3: "⚙️ منطقه ۳: خون، ماشین و ریکاوری",
+        4: "👹 منطقه ۴: تخصص‌ها و غول‌های آخر",
+        5: "🏆 منطقه ۵: مدیریت و ایمنی بالینی"
+    };
+
+    let currentQuestions = [];
+    let currentMode = 'study';
     let currentQIndex = 0;
     let userScore = 0;
     let userRole = 'ثبت نشده';
@@ -7,9 +229,9 @@ let currentQuestions = [];
     let currentChapterData = null;
     let userAnswers = [];
 
-    // رندر کردن اتوماتیک نقشه راه
     function renderRoadmap() {
         const container = document.getElementById('roadmap-container');
+        container.innerHTML = '';
         let currentWorld = 0;
         let pathContainer = null;
         let isFirstNode = true;
@@ -57,7 +279,6 @@ let currentQuestions = [];
         document.getElementById(screenId).classList.add('active');
     }
 
-    // خواندن شناسه‌های موعد امروز از آدرس URL
     const urlParams = new URLSearchParams(window.location.search);
     const rawReviewIds = urlParams.get('review_ids');
     const dueReviewQuestionIds = rawReviewIds ? rawReviewIds.split(',').filter(x => x.length > 0).map(Number) : [];
@@ -85,12 +306,11 @@ let currentQuestions = [];
         btn.classList.add('active');
     }
 
-    // لود مستقیم فایل جیسون مربوط به هر فصل
     async function startQuiz(chapterData, element) {
         activeNodeElement = element;
         currentChapterData = chapterData;
         document.getElementById('bottom-nav').style.display = 'none';
-        currentMode = 'study'; // تنظیم شروع روی حالت مطالعه نکات
+        currentMode = 'study';
         currentQIndex = 0;
         userScore = 0;
         userAnswers = [];
@@ -126,7 +346,6 @@ let currentQuestions = [];
         }
     }
 
-    // کنترل ورود به فاز مطالعه یا فاز آزمون
     function loadQuestion() {
         if (currentMode === 'study') {
             loadStudyTip();
@@ -135,7 +354,6 @@ let currentQuestions = [];
         }
     }
 
-    // فاز ۱: نمایش ۵ نکته به صورت متوالی
     function loadStudyTip() {
         const total = currentQuestions.length;
         const progressPercent = ((currentQIndex + 1) / total) * 100;
@@ -153,14 +371,22 @@ let currentQuestions = [];
         `;
         
         const isLastTip = (currentQIndex === total - 1);
-        const btnText = isLastTip ? "شروع آزمون این ۵ نکته 🎯" : "نکته بعدی ⬅️";
-        const btnAction = isLastTip ? "startQuizPhase()" : "nextTip()";
+        const optsContainer = document.getElementById('options-container');
+        optsContainer.innerHTML = '';
 
-        document.getElementById('options-container').innerHTML = `
-            <button class="btn primary-action" style="margin-top: 25px;" onclick="${btnAction}">
-                ${btnText}
-            </button>
-        `;
+        const actionBtn = document.createElement('button');
+        actionBtn.className = 'btn primary-action';
+        actionBtn.style.marginTop = '25px';
+
+        if (isLastTip) {
+            actionBtn.innerText = 'شروع آزمون این ۵ نکته 🎯';
+            actionBtn.onclick = startQuizPhase;
+        } else {
+            actionBtn.innerText = 'نکته بعدی ⬅️';
+            actionBtn.onclick = nextTip;
+        }
+
+        optsContainer.appendChild(actionBtn);
     }
 
     function nextTip() {
@@ -175,7 +401,6 @@ let currentQuestions = [];
         loadQuizQuestion();
     }
 
-    // فاز ۲: آزمون ۵ تستی
     function loadQuizQuestion() {
         if (currentQIndex >= currentQuestions.length) {
             return finishQuiz();
@@ -223,7 +448,7 @@ let currentQuestions = [];
             btnNode.classList.add('correct');
             userScore += 10;
             document.getElementById('board-score').innerText = userScore + " XP";
-            try { tg.HapticFeedback.notificationOccurred('success'); } catch(e){}
+            try { tg?.HapticFeedback?.notificationOccurred('success'); } catch(e){}
         } else {
             btnNode.classList.add('wrong');
             if (allBtns[correctIdx]) allBtns[correctIdx].classList.add('correct');
@@ -238,7 +463,7 @@ let currentQuestions = [];
             document.getElementById('options-container').appendChild(expDiv);
 
             delayTime = 4000;
-            try { tg.HapticFeedback.notificationOccurred('error'); } catch(e){}
+            try { tg?.HapticFeedback?.notificationOccurred('error'); } catch(e){}
         }
 
         setTimeout(() => {
@@ -246,3 +471,76 @@ let currentQuestions = [];
             loadQuizQuestion();
         }, delayTime);
     }
+
+    function finishQuiz() {
+        document.getElementById('progress').style.width = '100%';
+        document.getElementById('question-text').innerText = `آزمون فصل ${currentChapterData.id} (${currentChapterData.title}) به پایان رسید! 🎉\nکارت عالی بود.`;
+        
+        document.getElementById('options-container').innerHTML = `
+            <button class="btn primary-action" onclick="submitAndReturn()">
+                ثبت نتیجه و ادامه مسیر 🗺️
+            </button>
+        `;
+    }
+
+    function submitAndReturn() {
+        if (tg) {
+            tg.sendData(JSON.stringify({
+                action: 'finish_chapter',
+                chapter_id: currentChapterData.id,
+                chapter_title: currentChapterData.title,
+                score: userScore,
+                role: userRole,
+                answers: userAnswers
+            }));
+        }
+        returnToRoadmap();
+    }
+
+    function returnToRoadmap() {
+        if(activeNodeElement) {
+            let nextNode = activeNodeElement.nextElementSibling;
+            if(!nextNode) {
+                const nextSection = activeNodeElement.closest('.level-section')?.nextElementSibling;
+                if(nextSection) nextNode = nextSection.querySelector('.level-node');
+            }
+            if(nextNode && nextNode.classList.contains('locked')) {
+                nextNode.classList.remove('locked');
+            }
+        }
+        
+        showScreen('dashboard-screen');
+        document.getElementById('bottom-nav').style.display = 'flex';
+        document.getElementById('progress').style.width = '0%';
+    }
+
+    async function startDailyReview() {
+        document.getElementById('bottom-nav').style.display = 'none';
+        currentMode = 'study';
+        currentQIndex = 0;
+        userScore = 0;
+        userAnswers = [];
+        currentChapterData = { id: 0, title: "مرور روزانه لایتنر" };
+
+        document.getElementById('question-text').innerText = "در حال بارگذاری نکات امروز... ⏳";
+        document.getElementById('options-container').innerHTML = '';
+        showScreen('quiz-screen');
+
+        try {
+            const response = await fetch(`airway_managment.json?t=${Date.now()}`);
+            const allQuestions = await response.json();
+            
+            currentQuestions = allQuestions.filter(q => dueReviewQuestionIds.includes(q.id));
+            if (currentQuestions.length === 0) {
+                currentQuestions = allQuestions.slice(0, Math.min(5, dueReviewQuestionIds.length));
+            }
+
+            loadQuestion();
+        } catch (err) {
+            console.error("خطا در بارگذاری سوالات مرور:", err);
+            returnToRoadmap();
+        }
+    }
+</script>
+</body>
+</html>
