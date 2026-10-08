@@ -117,6 +117,11 @@
     </div>
 
     <!-- نقشه راه (اتوماتیک رندر می‌شود) -->
+    <div id="review-banner" style="display: none; background: #ff9800; color: white; padding: 14px; border-radius: 16px; margin-bottom: 20px; text-align: center; box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);">
+    <div style="font-weight: bold; font-size: 17px; margin-bottom: 6px;">🧠 وقت مرور روزانه لایتنر!</div>
+    <div style="font-size: 14px; opacity: 0.9;" id="review-count-text">شما ۳ نکته موعد مرور دارید.</div>
+    <button class="btn" style="background: white; color: #e65100; margin-top: 10px; border: none; font-weight: bold;" onclick="startDailyReview()">شروع مرور سریع ⚡</button>
+</div>
     <div id="dashboard-screen" class="screen">
         <div id="roadmap-container"></div>
     </div>
@@ -290,11 +295,27 @@
     }
 
     // ذخیره نقش کاربر و ورود به نقشه راه
+// خواندن شناسه‌های موعد امروز از آدرس URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const rawReviewIds = urlParams.get('review_ids');
+    const dueReviewQuestionIds = rawReviewIds ? rawReviewIds.split(',').filter(x => x.length > 0).map(Number) : [];
+
+    function checkDailyReviewBanner() {
+        const banner = document.getElementById('review-banner');
+        if (banner && dueReviewQuestionIds.length > 0) {
+        banner.style.display = 'block';
+        const countText = document.getElementById('review-count-text');
+        if (countText) countText.innerText = `امروز ${dueReviewQuestionIds.length} نکته در نوبت مرور حافظه بلندمدت داری.`;
+        }
+    }
+
+// ذخیره نقش کاربر و بررسی بنر مرور
     function finishOnboarding(role) {
         userRole = role;
         renderRoadmap();
         showScreen('dashboard-screen');
         document.getElementById('bottom-nav').style.display = 'flex';
+        checkDailyReviewBanner(); // <--- بنر رو در داشبورد فعال می‌کنه
     }
 
     function switchTab(tabId, btn) {
@@ -479,6 +500,36 @@ function checkAnswer(selectedIndex, btnNode) {
         showScreen('dashboard-screen');
         document.getElementById('bottom-nav').style.display = 'flex';
         document.getElementById('progress').style.width = '0%';
+    }
+    async function startDailyReview() {
+        document.getElementById('bottom-nav').style.display = 'none';
+        currentQIndex = 0;
+        userScore = 0;
+        userAnswers = [];
+        currentChapterData = { id: 0, title: "مرور روزانه لایتنر" };
+
+        document.getElementById('question-text').innerText = "در حال بارگذاری نکات امروز... ⏳";
+        document.getElementById('options-container').innerHTML = '';
+        showScreen('quiz-screen');
+
+        try {
+            // دریافت فایل تست‌های راه هوایی یا فصل مورد نظر
+            const response = await fetch(`airway_managment.json?t=${Date.now()}`);
+            const allQuestions = await response.json();
+            
+            // فیلتر کردن سوالاتی که آیدی‌شان در لیست امروز است
+            currentQuestions = allQuestions.filter(q => dueReviewQuestionIds.includes(q.id));
+            
+            // اگر آیدی‌ها هنوز در جیسون ست نشده بودند، به عنوان تست چند سوال اول را بیاور
+            if (currentQuestions.length === 0) {
+                currentQuestions = allQuestions.slice(0, Math.min(5, dueReviewQuestionIds.length));
+            }
+
+            loadQuestion();
+        } catch (err) {
+            console.error("خطا در بارگذاری سوالات مرور:", err);
+            returnToRoadmap();
+        }
     }
 </script>
 
